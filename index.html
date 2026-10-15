@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Voz Roberto Pro v3</title>
+<style>
+body{background:#0a0a0a;color:#fff;font-family:system-ui;text-align:center;padding:18px}
+h2{margin:5px} p{color:#aaa;font-size:13px}
+button,label{width:100%;padding:18px;border-radius:14px;border:none;font-size:16px;font-weight:bold;margin:8px 0;display:block}
+#import{background:#00ff88;color:#000}
+#rec{background:#ff0033;color:#fff}
+#download{background:#fff;color:#000;display:none}
+.card{background:#151515;padding:12px;border-radius:12px;margin:12px 0;text-align:left;font-size:13px;line-height:1.6}
+span{color:#00ff88;font-weight:bold}
+audio{width:100%;margin-top:10px}
+input{display:none}
+</style>
+</head>
+<body>
+<h2>VOZ ROBERTO PRO v3</h2>
+<p>Importe seu áudio abafado do Zap</p>
+
+<label for="file" id="import">📁 IMPORTAR ÁUDIO DO WHATSAPP</label>
+<input type="file" id="file" accept="audio/*">
+<button id="rec">● OU GRAVAR NA HORA</button>
+<audio id="audio" controls></audio>
+<button id="download">⬇ BAIXAR VOZ MELHORADA WAV</button>
+
+<div class="card">
+<b>Dataset Ativo - Sua Voz:</b><br>
+✓ Remove abafado: <span>250Hz -5.5dB</span><br>
+✓ Voz na frente: <span>2700Hz +4.5dB</span><br>
+✓ Brilho sem chiado: <span>5200Hz +3dB</span><br>
+✓ Compressor: <span>-18dB / 3.2:1</span>
+</div>
+
+<script>
+let audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+let improvedBuffer = null;
+const fileInput = document.getElementById('file');
+const audioEl = document.getElementById('audio');
+const downloadBtn = document.getElementById('download');
+
+const dataset = {
+ eq:[{freq:100,type:"highpass"},{freq:250,gain:-5.5,q:1.4},{freq:2700,gain:4.5,q:1},{freq:5200,gain:3,type:"peaking",q:1.2}],
+ comp:{threshold:-18,ratio:3.2,attack:0.012,release:0.16}
+};
+
+async function melhorarAudio(audioBuffer){
+  const offline = new OfflineAudioContext(1, audioBuffer.length, audioBuffer.sampleRate);
+  const src = offline.createBufferSource(); src.buffer = audioBuffer;
+  let last = src;
+  dataset.eq.forEach(e=>{
+    const f = offline.createBiquadFilter();
+    f.frequency.value=e.freq; f.gain.value=e.gain||0; f.Q.value=e.q||0.7;
+    f.type = e.type==="highpass"?"highpass": e.type==="highshelf"?"highshelf":"peaking";
+    last.connect(f); last=f;
+  });
+  const comp = offline.createDynamicsCompressor();
+  comp.threshold.value=dataset.comp.threshold; comp.ratio.value=dataset.comp.ratio;
+  comp.attack.value=dataset.comp.attack; comp.release.value=dataset.comp.release;
+  last.connect(comp); comp.connect(offline.destination);
+  src.start(0);
+  return await offline.render();
+}
+
+fileInput.onchange = async (
